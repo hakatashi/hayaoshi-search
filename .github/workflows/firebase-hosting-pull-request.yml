@@ -24,11 +24,11 @@ jobs:
       - id: check
         name: Check if the PR author has access to the Firebase project
         env:
-          FIREBASE_SERVICE_ACCOUNT_SOLID_START_FIREBASE_TEMPLATE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SOLID_START_FIREBASE_TEMPLATE }}
+          FIREBASE_SERVICE_ACCOUNT_HAYAOSHI_SEARCH: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HAYAOSHI_SEARCH }}
         continue-on-error: true
         run: |
-          if [ -z "$FIREBASE_SERVICE_ACCOUNT_SOLID_START_FIREBASE_TEMPLATE" ]; then
-            echo "The FIREBASE_SERVICE_ACCOUNT_SOLID_START_FIREBASE_TEMPLATE secret is not set."
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_HAYAOSHI_SEARCH" ]; then
+            echo "The FIREBASE_SERVICE_ACCOUNT_HAYAOSHI_SEARCH secret is not set."
             exit 1
           fi
 
@@ -49,5 +49,5 @@ jobs:
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SOLID_START_FIREBASE_TEMPLATE }}
-          projectId: solid-start-firebase-template
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HAYAOSHI_SEARCH }}
+          projectId: hayaoshi-search

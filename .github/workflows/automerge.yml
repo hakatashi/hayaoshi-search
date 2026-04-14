@@ -4,7 +4,7 @@ on: pull_request_target
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'hakatashi/solid-start-firebase-template'
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'hakatashi/hayaoshi-search'
     steps:
       - name: Dependabot metadata
         id: metadata

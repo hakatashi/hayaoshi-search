@@ -16,7 +16,7 @@ jobs:
           github.event.pull_request.author_association
         )
       ) &&
-      github.repository == 'hakatashi/solid-start-firebase-template'
+      github.repository == 'hakatashi/hayaoshi-search'
 
     permissions:
       contents: write

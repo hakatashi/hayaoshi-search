@@ -122,6 +122,6 @@ jobs:
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
-          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_SOLID_START_FIREBASE_TEMPLATE }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_HAYAOSHI_SEARCH }}"
           channelId: live
-          projectId: solid-start-firebase-template
+          projectId: hayaoshi-search

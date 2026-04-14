@@ -1,5 +1,5 @@
 {
-	"name": "solid-start-firebase-template",
+	"name": "hayaoshi-search",
 	"type": "module",
 	"scripts": {
 		"dev": "concurrently \"npm run dev:server\" \"npm run dev:firebase\" \"npm run functions:build:watch\" --names server,firebase,functions",
