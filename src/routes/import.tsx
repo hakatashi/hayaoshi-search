@@ -1,7 +1,14 @@
 import {For, Show, createMemo, createSignal, type Component} from 'solid-js';
-import {addDoc, Timestamp} from 'firebase/firestore';
+import {
+	Timestamp,
+	doc,
+	getDocs,
+	query,
+	where,
+	writeBatch,
+} from 'firebase/firestore';
 import Papa from 'papaparse';
-import {Questions} from '~/lib/firebase';
+import {db, Questions} from '~/lib/firebase';
 import type {Question, QuestionInput} from '~/lib/types';
 import {buildSearchTokens} from '~/lib/tokenizer';
 import styles from './import.module.css';
@@ -20,6 +27,8 @@ const FIELD_OPTIONS = [
 	{value: 'sourceNumber', label: '出典番号'},
 ];
 
+const BATCH_SIZE = 500;
+
 type ParsedRow = Record<string, string>;
 
 const ImportPage: Component = () => {
@@ -29,6 +38,7 @@ const ImportPage: Component = () => {
 	const [importing, setImporting] = createSignal(false);
 	const [progress, setProgress] = createSignal(0);
 	const [total, setTotal] = createSignal(0);
+	const [statusMsg, setStatusMsg] = createSignal('');
 	const [error, setError] = createSignal('');
 	const [success, setSuccess] = createSignal('');
 	const [pasteText, setPasteText] = createSignal('');
@@ -142,46 +152,89 @@ const ImportPage: Component = () => {
 		setError('');
 		setSuccess('');
 
-		let count = 0;
+		// Build all question payloads first
+		setStatusMsg('トークン生成中...');
+		const payloads: Array<{question: QuestionInput; tokens: string[]}> = [];
+		let built = 0;
 		for (const row of rows) {
-			try {
-				const partial = buildQuestion(row);
-				const question: QuestionInput = {
-					question: (partial.question ?? '').trim(),
-					answer: (partial.answer ?? '').trim(),
-					explanation: (partial.explanation ?? '').trim(),
-					alternativeAnswers: partial.alternativeAnswers ?? [],
-					majorCategory: (partial.majorCategory ?? '').trim(),
-					minorCategory: (partial.minorCategory ?? '').trim(),
-					difficulty: (partial.difficulty as 1 | 2 | 3 | 4 | 5) ?? 3,
-					source: (partial.source ?? '').trim(),
-					sourceNumber: (partial.sourceNumber ?? '').trim(),
-				};
+			const partial = buildQuestion(row);
+			const question: QuestionInput = {
+				question: (partial.question ?? '').trim(),
+				answer: (partial.answer ?? '').trim(),
+				explanation: (partial.explanation ?? '').trim(),
+				alternativeAnswers: partial.alternativeAnswers ?? [],
+				majorCategory: (partial.majorCategory ?? '').trim(),
+				minorCategory: (partial.minorCategory ?? '').trim(),
+				difficulty: (partial.difficulty as 1 | 2 | 3 | 4 | 5) ?? 3,
+				source: (partial.source ?? '').trim(),
+				sourceNumber: (partial.sourceNumber ?? '').trim(),
+			};
+			if (!question.question || !question.answer) {
+				built++;
+				setProgress(built);
+				continue;
+			}
+			const tokens = await buildSearchTokens(
+				question.question,
+				question.answer,
+			);
+			payloads.push({question, tokens});
+			built++;
+			setProgress(built);
+		}
 
-				if (!question.question || !question.answer) {
-					count++;
-					setProgress(count);
-					continue;
+		// Fetch existing docs by source to detect duplicates
+		setStatusMsg('既存データ確認中...');
+		const uniqueSources = [
+			...new Set(payloads.map((p) => p.question.source).filter(Boolean)),
+		];
+		// Map of "source|sourceNumber" -> existing doc id
+		const existingMap = new Map<string, string>();
+		for (const src of uniqueSources) {
+			const snap = await getDocs(query(Questions, where('source', '==', src)));
+			for (const d of snap.docs) {
+				const data = d.data();
+				if (data.sourceNumber) {
+					existingMap.set(`${data.source}|${data.sourceNumber}`, d.id);
 				}
+			}
+		}
 
-				const searchTokens = await buildSearchTokens(
-					question.question,
-					question.answer,
-				);
-				await addDoc(Questions, {
+		// Write in batches of BATCH_SIZE
+		setStatusMsg('書き込み中...');
+		let written = 0;
+		let updated = 0;
+		for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
+			const chunk = payloads.slice(i, i + BATCH_SIZE);
+			const batch = writeBatch(db);
+			for (const {question, tokens} of chunk) {
+				const key = `${question.source}|${question.sourceNumber}`;
+				const existingId =
+					question.source && question.sourceNumber
+						? existingMap.get(key)
+						: undefined;
+				const docRef = existingId ? doc(Questions, existingId) : doc(Questions);
+				batch.set(docRef, {
 					...question,
-					searchTokens,
+					searchTokens: tokens,
 					createdAt: Timestamp.now(),
 				} as Question);
-			} catch (err) {
-				console.error('Import error for row:', err);
+				if (existingId) updated++;
+				else written++;
 			}
-			count++;
-			setProgress(count);
+			await batch.commit();
 		}
 
 		setImporting(false);
-		setSuccess(`${count} 件のインポートが完了しました。`);
+		setStatusMsg('');
+		const parts: string[] = [];
+		if (written > 0) parts.push(`${written} 件追加`);
+		if (updated > 0) parts.push(`${updated} 件上書き`);
+		setSuccess(
+			parts.length > 0
+				? `インポート完了: ${parts.join('、')}しました。`
+				: 'インポート完了しました。',
+		);
 		setRawRows([]);
 		setHeaders([]);
 		setPasteText('');
@@ -262,6 +315,9 @@ const ImportPage: Component = () => {
 					<p>
 						別解は <code>;</code>（セミコロン）で区切って複数指定できます。
 					</p>
+					<p>
+						出典と出典番号が両方設定されている場合、既存の問題を上書きします。
+					</p>
 				</div>
 			</div>
 
@@ -335,7 +391,7 @@ const ImportPage: Component = () => {
 				<div class={styles.section}>
 					<div class={styles.progressCard}>
 						<p class={styles.progressText}>
-							インポート中... {progress()} / {total()} 件
+							{statusMsg() || 'インポート中...'} {progress()} / {total()} 件
 						</p>
 						<div class={styles.progressTrack}>
 							<div
