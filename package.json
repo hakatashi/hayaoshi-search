@@ -15,7 +15,7 @@
 		"test": "concurrently \"npm run dev:firebase\" \"npm run test:vitest\" --names firebase,vitest --kill-others --success first",
 		"test:vitest": "wait-on http-get://localhost:8080 http-get://localhost:5000 http-get://localhost:9099 && vitest",
 		"prepare": "husky",
-		"install": "cd functions && npm install"
+		"install": "npm --prefix functions ci"
 	},
 	"dependencies": {
 		"@solidjs/router": "^0.16.1",
