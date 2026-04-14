@@ -1,0 +1,21 @@
+{
+	"name": "functions",
+	"scripts": {
+		"build": "tsc",
+		"build:watch": "tsc --watch --preserveWatchOutput",
+		"logs": "firebase functions:log"
+	},
+	"engines": {
+		"node": "22"
+	},
+	"main": "lib/index.js",
+	"dependencies": {
+		"firebase-admin": "^13.8.0",
+		"firebase-functions": "^7.2.5"
+	},
+	"devDependencies": {
+		"typescript": "^6.0.2",
+		"firebase-functions-test": "^3.4.1"
+	},
+	"private": true
+}

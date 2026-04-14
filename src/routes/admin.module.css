@@ -1,0 +1,21 @@
+ul.tasks {
+	width: 42rem;
+	margin: 1rem auto;
+	list-style-type: none;
+	padding: 0;
+}
+
+li.task {
+	padding: 10px;
+	border: 1px solid #ccc;
+	margin-bottom: 10px;
+}
+
+button.deleteTask {
+	background-color: #f00;
+	color: #fff;
+	border: none;
+	padding: 5px 10px;
+	cursor: pointer;
+	float: right;
+}
