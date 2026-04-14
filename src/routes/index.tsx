@@ -14,6 +14,8 @@ import {DIFFICULTY_COLORS, DIFFICULTY_LABELS, type Question} from '~/lib/types';
 import {getBigrams, matchesTokens, tokenize} from '~/lib/tokenizer';
 import styles from './index.module.css';
 
+const PAGE_SIZE = 100;
+
 const Index: Component = () => {
 	const allQuestions = useFirestore(
 		query(Questions, orderBy('createdAt', 'desc')),
@@ -24,7 +26,9 @@ const Index: Component = () => {
 	const [majorCategory, setMajorCategory] = createSignal('');
 	const [minorCategory, setMinorCategory] = createSignal('');
 	const [difficulty, setDifficulty] = createSignal(0);
+	const [source, setSource] = createSignal('');
 	const [queryTokens, setQueryTokens] = createSignal<string[]>([]);
+	const [page, setPage] = createSignal(1);
 
 	// Debounce keyword input
 	let keywordTimer: ReturnType<typeof setTimeout>;
@@ -63,9 +67,26 @@ const Index: Component = () => {
 		].sort();
 	});
 
+	const sources = createMemo(() =>
+		[
+			...new Set(
+				(allQuestions.data ?? []).map((q) => q.source).filter(Boolean),
+			),
+		].sort(),
+	);
+
+	// Reset page and minor category when parent filters change
 	createEffect(() => {
 		majorCategory();
 		setMinorCategory('');
+		setPage(1);
+	});
+	createEffect(() => {
+		debouncedKeyword();
+		minorCategory();
+		difficulty();
+		source();
+		setPage(1);
 	});
 
 	const filteredQuestions = createMemo(() => {
@@ -75,11 +96,13 @@ const Index: Component = () => {
 		const maj = majorCategory();
 		const min = minorCategory();
 		const diff = difficulty();
+		const src = source();
 
 		return data.filter((q: Question) => {
 			if (maj && q.majorCategory !== maj) return false;
 			if (min && q.minorCategory !== min) return false;
 			if (diff && q.difficulty !== diff) return false;
+			if (src && q.source !== src) return false;
 
 			if (kw) {
 				if (tokens.length > 0 && q.searchTokens?.length) {
@@ -96,6 +119,24 @@ const Index: Component = () => {
 			return true;
 		});
 	});
+
+	const totalPages = createMemo(() =>
+		Math.max(1, Math.ceil(filteredQuestions().length / PAGE_SIZE)),
+	);
+
+	const pagedQuestions = createMemo(() => {
+		const p = page();
+		return filteredQuestions().slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
+	});
+
+	const hasActiveFilter = createMemo(
+		() =>
+			majorCategory() ||
+			minorCategory() ||
+			difficulty() ||
+			keyword() ||
+			source(),
+	);
 
 	return (
 		<div>
@@ -170,9 +211,18 @@ const Index: Component = () => {
 					</For>
 				</select>
 
-				<Show
-					when={majorCategory() || minorCategory() || difficulty() || keyword()}
+				<select
+					class={styles.filterSelect}
+					value={source()}
+					onChange={(e) => setSource(e.currentTarget.value)}
 				>
+					<option value="">出典: すべて</option>
+					<For each={sources()}>
+						{(src) => <option value={src}>{src}</option>}
+					</For>
+				</select>
+
+				<Show when={hasActiveFilter()}>
 					<button
 						type="button"
 						class={styles.clearBtn}
@@ -182,6 +232,7 @@ const Index: Component = () => {
 							setMajorCategory('');
 							setMinorCategory('');
 							setDifficulty(0);
+							setSource('');
 						}}
 					>
 						クリア
@@ -223,7 +274,7 @@ const Index: Component = () => {
 						}
 					>
 						<div class={styles.list}>
-							<For each={filteredQuestions()}>
+							<For each={pagedQuestions()}>
 								{(q) => (
 									<A href={`/questions/${q.id}`} class={styles.questionCard}>
 										<div class={styles.questionText}>{q.question}</div>
@@ -249,11 +300,41 @@ const Index: Component = () => {
 													{DIFFICULTY_LABELS[q.difficulty]}
 												</span>
 											</Show>
+											<Show when={q.source}>
+												<span class={`${styles.badge} ${styles.sourceBadge}`}>
+													{q.source}
+													{q.sourceNumber ? ` #${q.sourceNumber}` : ''}
+												</span>
+											</Show>
 										</div>
 									</A>
 								)}
 							</For>
 						</div>
+
+						<Show when={totalPages() > 1}>
+							<div class={styles.pagination}>
+								<button
+									type="button"
+									class={styles.pageBtn}
+									disabled={page() === 1}
+									onClick={() => setPage((p) => p - 1)}
+								>
+									← 前
+								</button>
+								<span class={styles.pageInfo}>
+									{page()} / {totalPages()} ページ
+								</span>
+								<button
+									type="button"
+									class={styles.pageBtn}
+									disabled={page() === totalPages()}
+									onClick={() => setPage((p) => p + 1)}
+								>
+									次 →
+								</button>
+							</div>
+						</Show>
 					</Show>
 				</Show>
 			</Show>
