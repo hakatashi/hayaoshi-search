@@ -1,0 +1,93 @@
+.loading,
+.screen {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--color-bg);
+}
+
+.spinner {
+	width: 32px;
+	height: 32px;
+	border: 3px solid var(--color-border);
+	border-top-color: var(--color-primary);
+	border-radius: 50%;
+	animation: spin 0.6s linear infinite;
+	margin: 0 auto 12px;
+}
+
+.loadingText {
+	color: var(--color-text-secondary);
+	text-align: center;
+}
+
+.card {
+	background: var(--color-card);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-lg);
+	padding: 40px;
+	text-align: center;
+	max-width: 360px;
+	width: 100%;
+	box-shadow: var(--shadow-lg);
+}
+
+.title {
+	font-size: 22px;
+	font-weight: 700;
+	color: var(--color-primary);
+	margin: 0 0 8px;
+}
+
+.subtitle {
+	color: var(--color-text-secondary);
+	margin: 0 0 24px;
+	font-size: 14px;
+}
+
+.errorText {
+	color: var(--color-danger);
+	margin: 0 0 24px;
+	font-size: 13px;
+}
+
+.signInBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 20px;
+	font-size: 14px;
+	font-weight: 500;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: white;
+	color: var(--color-text);
+	cursor: pointer;
+	box-shadow: var(--shadow-sm);
+	transition:
+		box-shadow 0.15s,
+		background 0.15s;
+}
+.signInBtn:hover {
+	background: #f9fafb;
+	box-shadow: var(--shadow);
+}
+
+.secondaryBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 16px;
+	font-size: 14px;
+	font-weight: 500;
+	border: none;
+	border-radius: var(--radius-sm);
+	background: var(--color-border);
+	color: var(--color-text);
+	cursor: pointer;
+	transition: background 0.15s;
+}
+.secondaryBtn:hover {
+	background: #d1d5db;
+}

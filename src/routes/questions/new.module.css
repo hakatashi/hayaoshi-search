@@ -1,0 +1,36 @@
+.header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 24px;
+}
+
+.backLink {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 13px;
+	color: var(--color-text-secondary);
+	text-decoration: none;
+	transition: color 0.15s;
+}
+.backLink:hover {
+	color: var(--color-primary);
+	text-decoration: none;
+}
+
+.title {
+	font-size: 20px;
+	font-weight: 700;
+	margin: 0;
+}
+
+.errorMsg {
+	background: #fef2f2;
+	border: 1px solid #fecaca;
+	border-radius: var(--radius-sm);
+	padding: 10px 14px;
+	color: var(--color-danger);
+	font-size: 13px;
+	margin-bottom: 16px;
+}

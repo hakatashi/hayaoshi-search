@@ -2,10 +2,13 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /tasks/{taskId} {
-      allow read;
-      allow write: if request.auth.uid != null && request.auth.uid == request.resource.data.uid;
-      allow delete;
+    function isAuthorized() {
+      return request.auth != null &&
+             request.auth.token.email == 'hakatasiloving@gmail.com';
+    }
+
+    match /questions/{questionId} {
+      allow read, write, delete: if isAuthorized();
     }
   }
 }
