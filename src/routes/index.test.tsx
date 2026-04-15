@@ -164,16 +164,22 @@ test('大カテゴリで絞り込むと該当問題だけ表示される', async
 
 	const {getByText, queryByText, container} = renderIndex();
 
-	await waitFor(() => expect(getByText('2 件')).toBeInTheDocument(), {
-		timeout: 10000,
-	});
+	// Cloud Function が metadata/options を更新してドロップダウンに選択肢が現れるまで待つ
+	await waitFor(
+		() => {
+			expect(getByText('2 件')).toBeInTheDocument();
+			expect(
+				container.querySelector('option[value="地理"]'),
+			).toBeInTheDocument();
+		},
+		{timeout: 15000},
+	);
 
 	const selects = container.querySelectorAll('select');
 	fireEvent.change(selects[0], {target: {value: '地理'}});
 
 	await waitFor(
 		() => {
-			// Filtered: shows "1 件 / 2 件中"
 			expect(getByText(/^1 件/)).toBeInTheDocument();
 			expect(getByText('地理の問題')).toBeInTheDocument();
 			expect(queryByText('歴史の問題')).not.toBeInTheDocument();
@@ -198,9 +204,16 @@ test('クリアボタンでフィルターをリセットできる', async () =>
 
 	const {getByText, queryByText, container} = renderIndex();
 
-	await waitFor(() => expect(getByText('2 件')).toBeInTheDocument(), {
-		timeout: 10000,
-	});
+	// Cloud Function が metadata/options を更新してドロップダウンに選択肢が現れるまで待つ
+	await waitFor(
+		() => {
+			expect(getByText('2 件')).toBeInTheDocument();
+			expect(
+				container.querySelector('option[value="地理"]'),
+			).toBeInTheDocument();
+		},
+		{timeout: 15000},
+	);
 
 	const selects = container.querySelectorAll('select');
 	fireEvent.change(selects[0], {target: {value: '地理'}});
