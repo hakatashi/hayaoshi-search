@@ -4,137 +4,137 @@
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "majorCategory", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "majorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "minorCategory", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "minorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "difficulty", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "difficulty", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "source", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "source", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "majorCategory", "order": "ASCENDING"},
-				{"fieldPath": "minorCategory", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "majorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "minorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "majorCategory", "order": "ASCENDING"},
-				{"fieldPath": "difficulty", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "majorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "difficulty", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "majorCategory", "order": "ASCENDING"},
-				{"fieldPath": "source", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "majorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "source", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "minorCategory", "order": "ASCENDING"},
-				{"fieldPath": "difficulty", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "minorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "difficulty", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "minorCategory", "order": "ASCENDING"},
-				{"fieldPath": "source", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "minorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "source", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "difficulty", "order": "ASCENDING"},
-				{"fieldPath": "source", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "difficulty", "order": "ASCENDING" },
+				{ "fieldPath": "source", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "majorCategory", "order": "ASCENDING"},
-				{"fieldPath": "minorCategory", "order": "ASCENDING"},
-				{"fieldPath": "difficulty", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "majorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "minorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "difficulty", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "majorCategory", "order": "ASCENDING"},
-				{"fieldPath": "minorCategory", "order": "ASCENDING"},
-				{"fieldPath": "source", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "majorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "minorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "source", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "majorCategory", "order": "ASCENDING"},
-				{"fieldPath": "difficulty", "order": "ASCENDING"},
-				{"fieldPath": "source", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "majorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "difficulty", "order": "ASCENDING" },
+				{ "fieldPath": "source", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "minorCategory", "order": "ASCENDING"},
-				{"fieldPath": "difficulty", "order": "ASCENDING"},
-				{"fieldPath": "source", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "minorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "difficulty", "order": "ASCENDING" },
+				{ "fieldPath": "source", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		},
 		{
 			"collectionGroup": "questions",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{"fieldPath": "majorCategory", "order": "ASCENDING"},
-				{"fieldPath": "minorCategory", "order": "ASCENDING"},
-				{"fieldPath": "difficulty", "order": "ASCENDING"},
-				{"fieldPath": "source", "order": "ASCENDING"},
-				{"fieldPath": "createdAt", "order": "DESCENDING"}
+				{ "fieldPath": "majorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "minorCategory", "order": "ASCENDING" },
+				{ "fieldPath": "difficulty", "order": "ASCENDING" },
+				{ "fieldPath": "source", "order": "ASCENDING" },
+				{ "fieldPath": "createdAt", "order": "DESCENDING" }
 			]
 		}
 	],
