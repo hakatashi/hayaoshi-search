@@ -16,5 +16,8 @@ export default defineConfig({
 		setupFiles: ['./vitest.setup.ts'],
 		testTimeout: 30000,
 		hookTimeout: 30000,
+		// Serial execution to avoid emulator conflicts
+		maxWorkers: 1,
+		maxConcurrency: 1,
 	},
 });
