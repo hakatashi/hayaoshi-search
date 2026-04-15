@@ -10,5 +10,9 @@ service cloud.firestore {
     match /questions/{questionId} {
       allow read, write, delete: if isAuthorized();
     }
+
+    match /metadata/{document} {
+      allow read: if isAuthorized();
+    }
   }
 }

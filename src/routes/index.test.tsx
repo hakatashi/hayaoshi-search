@@ -1,17 +1,16 @@
-import {afterAll, afterEach, beforeAll, expect, test} from 'vitest';
-import {cleanup, render, waitFor} from '@solidjs/testing-library';
-import userEvent from '@testing-library/user-event';
-import {fireEvent} from '@testing-library/dom';
 import {Route, Router} from '@solidjs/router';
+import {cleanup, render, waitFor} from '@solidjs/testing-library';
+import {fireEvent} from '@testing-library/dom';
+import userEvent from '@testing-library/user-event';
 import {
 	createUserWithEmailAndPassword,
 	onAuthStateChanged,
 	signInWithEmailAndPassword,
 	signOut,
 } from 'firebase/auth';
-import {Timestamp, addDoc} from 'firebase/firestore';
-import {Questions, auth} from '~/lib/firebase.js';
-import {buildSearchTokensSync} from '~/lib/tokenizer.js';
+import {addDoc, Timestamp} from 'firebase/firestore';
+import {afterAll, afterEach, beforeAll, expect, test} from 'vitest';
+import {auth, Questions} from '~/lib/firebase.js';
 import Index from './index.js';
 
 const user = userEvent.setup();
@@ -84,7 +83,6 @@ async function addQuestion(data: {
 		difficulty: (data.difficulty ?? 3) as 1 | 2 | 3 | 4 | 5,
 		source: data.source ?? '',
 		sourceNumber: data.sourceNumber ?? '',
-		searchTokens: buildSearchTokensSync(data.question, data.answer),
 		createdAt: Timestamp.now(),
 	});
 }
@@ -166,48 +164,25 @@ test('大カテゴリで絞り込むと該当問題だけ表示される', async
 
 	const {getByText, queryByText, container} = renderIndex();
 
-	await waitFor(() => expect(getByText('2 件')).toBeInTheDocument(), {
-		timeout: 10000,
-	});
+	// Cloud Function が metadata/options を更新してドロップダウンに選択肢が現れるまで待つ
+	await waitFor(
+		() => {
+			expect(getByText('2 件')).toBeInTheDocument();
+			expect(
+				container.querySelector('option[value="地理"]'),
+			).toBeInTheDocument();
+		},
+		{timeout: 15000},
+	);
 
 	const selects = container.querySelectorAll('select');
 	fireEvent.change(selects[0], {target: {value: '地理'}});
 
 	await waitFor(
 		() => {
-			// Filtered: shows "1 件 / 2 件中"
 			expect(getByText(/^1 件/)).toBeInTheDocument();
 			expect(getByText('地理の問題')).toBeInTheDocument();
 			expect(queryByText('歴史の問題')).not.toBeInTheDocument();
-		},
-		{timeout: 10000},
-	);
-});
-
-test('キーワード検索で絞り込める', async () => {
-	await Promise.all([
-		addQuestion({question: '東京都の都庁所在地は？', answer: '新宿区'}),
-		addQuestion({question: '大阪城を建てたのは誰？', answer: '豊臣秀吉'}),
-	]);
-
-	const {getByText, queryByText, getByPlaceholderText} = renderIndex();
-
-	await waitFor(() => expect(getByText('2 件')).toBeInTheDocument(), {
-		timeout: 10000,
-	});
-
-	const input = getByPlaceholderText(
-		'キーワードで検索（日本語あいまい検索対応）',
-	);
-	await user.type(input, '東京都');
-
-	// Debounce is 300 ms; waitFor polls until the filter applies
-	await waitFor(
-		() => {
-			// Filtered: shows "1 件 / 2 件中"
-			expect(getByText(/^1 件/)).toBeInTheDocument();
-			expect(getByText('東京都の都庁所在地は？')).toBeInTheDocument();
-			expect(queryByText('大阪城を建てたのは誰？')).not.toBeInTheDocument();
 		},
 		{timeout: 10000},
 	);
@@ -229,9 +204,16 @@ test('クリアボタンでフィルターをリセットできる', async () =>
 
 	const {getByText, queryByText, container} = renderIndex();
 
-	await waitFor(() => expect(getByText('2 件')).toBeInTheDocument(), {
-		timeout: 10000,
-	});
+	// Cloud Function が metadata/options を更新してドロップダウンに選択肢が現れるまで待つ
+	await waitFor(
+		() => {
+			expect(getByText('2 件')).toBeInTheDocument();
+			expect(
+				container.querySelector('option[value="地理"]'),
+			).toBeInTheDocument();
+		},
+		{timeout: 15000},
+	);
 
 	const selects = container.querySelectorAll('select');
 	fireEvent.change(selects[0], {target: {value: '地理'}});

@@ -1,4 +1,3 @@
-import {copyFileSync, existsSync, mkdirSync, readdirSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {defineConfig} from '@solidjs/start/config';
@@ -6,31 +5,13 @@ import {defineConfig} from '@solidjs/start/config';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function copyKuromojiDict() {
-	return {
-		name: 'kuromoji-dict-copy',
-		buildStart() {
-			const srcDir = path.resolve(__dirname, 'node_modules/kuromoji/dict');
-			const destDir = path.resolve(__dirname, 'public/dict');
-			if (!existsSync(srcDir)) return;
-			if (!existsSync(destDir)) {
-				mkdirSync(destDir, {recursive: true});
-			}
-			for (const file of readdirSync(srcDir)) {
-				copyFileSync(path.join(srcDir, file), path.join(destDir, file));
-			}
-		},
-	};
-}
-
 export default defineConfig({
 	vite: {
-		plugins: [copyKuromojiDict()],
 		build: {
 			target: 'esnext',
 		},
 		optimizeDeps: {
-			include: ['kuromoji', 'papaparse'],
+			include: ['papaparse'],
 			exclude: [
 				'firebase/firestore',
 				'@firebase/firestore',
