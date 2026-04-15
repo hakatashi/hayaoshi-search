@@ -1,4 +1,5 @@
 import {beforeEach, vi} from 'vitest';
+import '@testing-library/jest-dom';
 
 const originalFetch = global.fetch;
 const fetchMock = vi.fn<typeof fetch>((...args) => {
@@ -26,5 +27,5 @@ beforeEach(async () => {
 		},
 	);
 	// Wait a bit for the deletion to complete
-	await new Promise((resolve) => setTimeout(resolve, 100));
+	await new Promise((resolve) => setTimeout(resolve, 300));
 });
