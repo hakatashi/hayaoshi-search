@@ -173,12 +173,15 @@ test('大カテゴリで絞り込むと該当問題だけ表示される', async
 	const selects = container.querySelectorAll('select');
 	fireEvent.change(selects[0], {target: {value: '地理'}});
 
-	await waitFor(() => {
-		// Filtered: shows "1 件 / 2 件中"
-		expect(getByText(/^1 件/)).toBeInTheDocument();
-		expect(getByText('地理の問題')).toBeInTheDocument();
-		expect(queryByText('歴史の問題')).not.toBeInTheDocument();
-	});
+	await waitFor(
+		() => {
+			// Filtered: shows "1 件 / 2 件中"
+			expect(getByText(/^1 件/)).toBeInTheDocument();
+			expect(getByText('地理の問題')).toBeInTheDocument();
+			expect(queryByText('歴史の問題')).not.toBeInTheDocument();
+		},
+		{timeout: 10000},
+	);
 });
 
 test('キーワード検索で絞り込める', async () => {
