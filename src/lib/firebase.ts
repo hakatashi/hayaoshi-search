@@ -1,13 +1,15 @@
-import {isServer} from 'solid-js/web';
 import {initializeApp} from 'firebase/app';
-import {GoogleAuthProvider, connectAuthEmulator, getAuth} from 'firebase/auth';
+import {connectAuthEmulator, GoogleAuthProvider, getAuth} from 'firebase/auth';
 import {
 	type CollectionReference,
 	collection,
 	connectFirestoreEmulator,
+	type DocumentReference,
+	doc,
 	getFirestore,
 } from 'firebase/firestore';
-import type {Question} from './types.ts';
+import {isServer} from 'solid-js/web';
+import type {Question, QuestionOptions} from './types.ts';
 
 const firebaseConfigResponse = await fetch('/__/firebase/init.json');
 const firebaseConfig = await firebaseConfigResponse.json();
@@ -29,4 +31,10 @@ const googleProvider = new GoogleAuthProvider();
 
 const Questions = collection(db, 'questions') as CollectionReference<Question>;
 
-export {app as default, auth, db, googleProvider, Questions};
+const OptionsDoc = doc(
+	db,
+	'metadata',
+	'options',
+) as DocumentReference<QuestionOptions>;
+
+export {app as default, auth, db, googleProvider, OptionsDoc, Questions};

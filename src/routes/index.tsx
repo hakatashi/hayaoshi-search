@@ -1,25 +1,39 @@
+import {A} from '@solidjs/router';
 import {
-	For,
-	Show,
+	onSnapshot,
+	orderBy,
+	type QueryConstraint,
+	query,
+	where,
+} from 'firebase/firestore';
+import {useFirestore} from 'solid-firebase';
+import {
+	type Component,
 	createEffect,
 	createMemo,
 	createSignal,
-	type Component,
+	For,
+	onCleanup,
+	Show,
 } from 'solid-js';
-import {A} from '@solidjs/router';
-import {useFirestore} from 'solid-firebase';
-import {orderBy, query} from 'firebase/firestore';
-import {Questions} from '~/lib/firebase';
-import {DIFFICULTY_COLORS, DIFFICULTY_LABELS, type Question} from '~/lib/types';
+import {createStore} from 'solid-js/store';
+import {OptionsDoc, Questions} from '~/lib/firebase';
 import {getBigrams, matchesTokens, tokenize} from '~/lib/tokenizer';
+import {DIFFICULTY_COLORS, DIFFICULTY_LABELS, type Question} from '~/lib/types';
 import styles from './index.module.css';
 
 const PAGE_SIZE = 100;
 
 const Index: Component = () => {
-	const allQuestions = useFirestore(
-		query(Questions, orderBy('createdAt', 'desc')),
-	);
+	// metadata/options ドキュメントをリアルタイム取得 → ドロップダウン選択肢として使用
+	const optionsDoc = useFirestore(OptionsDoc);
+
+	// サーバーサイドフィルタを反映したリアルタイムクエリの結果
+	const [displayState, setDisplayState] = createStore<{
+		loading: boolean;
+		error: Error | null;
+		data: Question[];
+	}>({loading: true, error: null, data: []});
 
 	const [keyword, setKeyword] = createSignal('');
 	const [debouncedKeyword, setDebouncedKeyword] = createSignal('');
@@ -29,6 +43,43 @@ const Index: Component = () => {
 	const [source, setSource] = createSignal('');
 	const [queryTokens, setQueryTokens] = createSignal<string[]>([]);
 	const [page, setPage] = createSignal(1);
+
+	// フィルタが変わるたびに Firestore クエリを再構築してリスナーを張り直す
+	createEffect(() => {
+		const constraints: QueryConstraint[] = [];
+		const maj = majorCategory();
+		const min = minorCategory();
+		const diff = difficulty();
+		const src = source();
+
+		if (maj) constraints.push(where('majorCategory', '==', maj));
+		if (min) constraints.push(where('minorCategory', '==', min));
+		if (diff) constraints.push(where('difficulty', '==', diff));
+		if (src) constraints.push(where('source', '==', src));
+		constraints.push(orderBy('createdAt', 'desc'));
+
+		setDisplayState('loading', true);
+
+		const q = query(Questions, ...constraints);
+		const unsubscribe = onSnapshot(
+			q,
+			(snapshot) => {
+				setDisplayState({
+					loading: false,
+					error: null,
+					data: snapshot.docs.map((d) => ({
+						id: d.id,
+						...d.data(),
+					})) as Question[],
+				});
+			},
+			(err) => {
+				setDisplayState({loading: false, error: err as Error, data: []});
+			},
+		);
+
+		onCleanup(unsubscribe);
+	});
 
 	// Debounce keyword input
 	let keywordTimer: ReturnType<typeof setTimeout>;
@@ -49,31 +100,22 @@ const Index: Component = () => {
 		setQueryTokens(tokens);
 	});
 
-	const majorCategories = createMemo(() =>
-		[
-			...new Set(
-				(allQuestions.data ?? []).map((q) => q.majorCategory).filter(Boolean),
-			),
-		].sort(),
+	// ドロップダウン選択肢は metadata/options から取得
+	const majorCategories = createMemo(
+		() => optionsDoc.data?.majorCategories ?? [],
 	);
 
 	const minorCategories = createMemo(() => {
-		const data = allQuestions.data ?? [];
-		const filtered = majorCategory()
-			? data.filter((q) => q.majorCategory === majorCategory())
-			: data;
-		return [
-			...new Set(filtered.map((q) => q.minorCategory).filter(Boolean)),
-		].sort();
+		const options = optionsDoc.data;
+		if (!options) return [];
+		const maj = majorCategory();
+		if (maj) {
+			return options.minorCategoriesByMajor[maj] ?? [];
+		}
+		return Object.values(options.minorCategoriesByMajor).flat().sort();
 	});
 
-	const sources = createMemo(() =>
-		[
-			...new Set(
-				(allQuestions.data ?? []).map((q) => q.source).filter(Boolean),
-			),
-		].sort(),
-	);
+	const sources = createMemo(() => optionsDoc.data?.sources ?? []);
 
 	// Reset page and minor category when parent filters change
 	createEffect(() => {
@@ -89,31 +131,23 @@ const Index: Component = () => {
 		setPage(1);
 	});
 
+	// キーワード検索はクライアントサイドで実施（サーバー側フィルタ済みデータに対して）
 	const filteredQuestions = createMemo(() => {
-		const data = allQuestions.data ?? [];
+		const data = displayState.data;
 		const kw = debouncedKeyword().trim();
 		const tokens = queryTokens();
-		const maj = majorCategory();
-		const min = minorCategory();
-		const diff = difficulty();
-		const src = source();
+
+		if (!kw) return data;
 
 		return data.filter((q: Question) => {
-			if (maj && q.majorCategory !== maj) return false;
-			if (min && q.minorCategory !== min) return false;
-			if (diff && q.difficulty !== diff) return false;
-			if (src && q.source !== src) return false;
-
-			if (kw) {
-				if (tokens.length > 0 && q.searchTokens?.length) {
-					if (!matchesTokens(q.searchTokens, tokens)) return false;
-				} else {
-					const docText = `${q.question} ${q.answer} ${q.explanation ?? ''}`;
-					const docBigrams = getBigrams(docText);
-					const kwBigrams = getBigrams(kw);
-					if (kwBigrams.length > 0 && !matchesTokens(docBigrams, kwBigrams))
-						return false;
-				}
+			if (tokens.length > 0 && q.searchTokens?.length) {
+				if (!matchesTokens(q.searchTokens, tokens)) return false;
+			} else {
+				const docText = `${q.question} ${q.answer} ${q.explanation ?? ''}`;
+				const docBigrams = getBigrams(docText);
+				const kwBigrams = getBigrams(kw);
+				if (kwBigrams.length > 0 && !matchesTokens(docBigrams, kwBigrams))
+					return false;
 			}
 
 			return true;
@@ -241,7 +275,7 @@ const Index: Component = () => {
 			</div>
 
 			<Show
-				when={!allQuestions.loading}
+				when={!displayState.loading}
 				fallback={
 					<div class={styles.loadingPage}>
 						<div class={styles.spinner} />
@@ -249,16 +283,15 @@ const Index: Component = () => {
 				}
 			>
 				<Show
-					when={!allQuestions.error}
+					when={!displayState.error}
 					fallback={
 						<div class={styles.errorMsg}>データの読み込みに失敗しました。</div>
 					}
 				>
 					<p class={styles.resultCount}>
 						{filteredQuestions().length} 件
-						{allQuestions.data &&
-						allQuestions.data.length !== filteredQuestions().length
-							? ` / ${allQuestions.data.length} 件中`
+						{displayState.data.length !== filteredQuestions().length
+							? ` / ${displayState.data.length} 件中`
 							: ''}
 					</p>
 

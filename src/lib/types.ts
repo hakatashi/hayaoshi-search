@@ -35,6 +35,12 @@ export interface Question extends DocumentData {
 
 export type QuestionInput = Omit<Question, 'id' | 'createdAt' | 'searchTokens'>;
 
+export interface QuestionOptions {
+	majorCategories: string[];
+	minorCategoriesByMajor: Record<string, string[]>;
+	sources: string[];
+}
+
 export interface SearchFilters {
 	query: string;
 	majorCategory: string;
