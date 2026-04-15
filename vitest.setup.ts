@@ -1,4 +1,5 @@
 import {beforeEach, vi} from 'vitest';
+import '@testing-library/jest-dom';
 
 const originalFetch = global.fetch;
 const fetchMock = vi.fn<typeof fetch>((...args) => {
@@ -18,13 +19,17 @@ const fetchMock = vi.fn<typeof fetch>((...args) => {
 vi.stubGlobal('fetch', fetchMock);
 
 beforeEach(async () => {
-	// Reset firestore data
-	await originalFetch(
-		'http://localhost:8080/emulator/v1/projects/hayaoshi-search/databases/(default)/documents',
-		{
-			method: 'DELETE',
-		},
-	);
-	// Wait a bit for the deletion to complete
-	await new Promise((resolve) => setTimeout(resolve, 100));
+	// Reset firestore data — skip if emulator is not running
+	try {
+		await originalFetch(
+			'http://localhost:8080/emulator/v1/projects/hayaoshi-search/databases/(default)/documents',
+			{
+				method: 'DELETE',
+			},
+		);
+		// Wait a bit for the deletion to complete
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	} catch {
+		// Firebase emulator not running; pure unit tests continue without reset
+	}
 });
