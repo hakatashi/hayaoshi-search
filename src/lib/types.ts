@@ -30,20 +30,12 @@ export interface Question extends DocumentData {
 	createdAt: Timestamp;
 	source: string;
 	sourceNumber: string;
-	searchTokens: string[];
 }
 
-export type QuestionInput = Omit<Question, 'id' | 'createdAt' | 'searchTokens'>;
+export type QuestionInput = Omit<Question, 'id' | 'createdAt'>;
 
 export interface QuestionOptions {
 	majorCategories: string[];
 	minorCategoriesByMajor: Record<string, string[]>;
 	sources: string[];
-}
-
-export interface SearchFilters {
-	query: string;
-	majorCategory: string;
-	minorCategory: string;
-	difficulty: number; // 0 = all
 }

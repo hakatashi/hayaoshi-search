@@ -1,16 +1,15 @@
-import {For, Show, createMemo, createSignal, type Component} from 'solid-js';
 import {
-	Timestamp,
 	doc,
 	getDocs,
 	query,
+	Timestamp,
 	where,
 	writeBatch,
 } from 'firebase/firestore';
 import Papa from 'papaparse';
+import {type Component, createMemo, createSignal, For, Show} from 'solid-js';
 import {db, Questions} from '~/lib/firebase';
 import type {Question, QuestionInput} from '~/lib/types';
-import {buildSearchTokens} from '~/lib/tokenizer';
 import styles from './import.module.css';
 
 // Column field options for mapping
@@ -152,10 +151,8 @@ const ImportPage: Component = () => {
 		setError('');
 		setSuccess('');
 
-		// Build all question payloads first
-		setStatusMsg('トークン生成中...');
-		const payloads: Array<{question: QuestionInput; tokens: string[]}> = [];
-		let built = 0;
+		// Build all question payloads
+		const payloads: QuestionInput[] = [];
 		for (const row of rows) {
 			const partial = buildQuestion(row);
 			const question: QuestionInput = {
@@ -169,19 +166,11 @@ const ImportPage: Component = () => {
 				source: (partial.source ?? '').trim(),
 				sourceNumber: (partial.sourceNumber ?? '').trim(),
 			};
-			if (!question.question || !question.answer) {
-				built++;
-				setProgress(built);
-				continue;
-			}
-			const tokens = await buildSearchTokens(
-				question.question,
-				question.answer,
-			);
-			payloads.push({question, tokens});
-			built++;
-			setProgress(built);
+			if (!question.question || !question.answer) continue;
+			payloads.push(question);
 		}
+		setProgress(payloads.length);
+		setTotal(rows.length);
 
 		// Fetch existing docs by source to detect duplicates
 		setStatusMsg('既存データ確認中...');
@@ -207,7 +196,7 @@ const ImportPage: Component = () => {
 		for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
 			const chunk = payloads.slice(i, i + BATCH_SIZE);
 			const batch = writeBatch(db);
-			for (const {question, tokens} of chunk) {
+			for (const question of chunk) {
 				const key = `${question.source}|${question.sourceNumber}`;
 				const existingId =
 					question.source && question.sourceNumber
@@ -216,7 +205,6 @@ const ImportPage: Component = () => {
 				const docRef = existingId ? doc(Questions, existingId) : doc(Questions);
 				batch.set(docRef, {
 					...question,
-					searchTokens: tokens,
 					createdAt: Timestamp.now(),
 				} as Question);
 				if (existingId) updated++;

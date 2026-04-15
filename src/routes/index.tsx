@@ -1,13 +1,17 @@
 import {A} from '@solidjs/router';
 import {
+	type DocumentSnapshot,
+	limit,
 	onSnapshot,
 	orderBy,
 	type QueryConstraint,
 	query,
+	startAfter,
 	where,
 } from 'firebase/firestore';
 import {useFirestore} from 'solid-firebase';
 import {
+	batch,
 	type Component,
 	createEffect,
 	createMemo,
@@ -15,10 +19,10 @@ import {
 	For,
 	onCleanup,
 	Show,
+	untrack,
 } from 'solid-js';
 import {createStore} from 'solid-js/store';
 import {OptionsDoc, Questions} from '~/lib/firebase';
-import {getBigrams, matchesTokens, tokenize} from '~/lib/tokenizer';
 import {DIFFICULTY_COLORS, DIFFICULTY_LABELS, type Question} from '~/lib/types';
 import styles from './index.module.css';
 
@@ -35,28 +39,52 @@ const Index: Component = () => {
 		data: Question[];
 	}>({loading: true, error: null, data: []});
 
-	const [keyword, setKeyword] = createSignal('');
-	const [debouncedKeyword, setDebouncedKeyword] = createSignal('');
 	const [majorCategory, setMajorCategory] = createSignal('');
 	const [minorCategory, setMinorCategory] = createSignal('');
 	const [difficulty, setDifficulty] = createSignal(0);
 	const [source, setSource] = createSignal('');
-	const [queryTokens, setQueryTokens] = createSignal<string[]>([]);
-	const [page, setPage] = createSignal(1);
 
-	// フィルタが変わるたびに Firestore クエリを再構築してリスナーを張り直す
+	// カーソルベースのページネーション状態
+	// pageCursors[i] はページ i を読み込む際に startAfter に渡す DocumentSnapshot
+	// pageCursors[0] は undefined (最初のページはカーソル不要)
+	const [pageIndex, setPageIndex] = createSignal(0);
+	const [pageCursors, setPageCursors] = createSignal<
+		(DocumentSnapshot | undefined)[]
+	>([undefined]);
+	const [hasNextPage, setHasNextPage] = createSignal(false);
+
+	// フィルタが変わったらページネーションをリセット
+	createEffect(() => {
+		majorCategory();
+		minorCategory();
+		difficulty();
+		source();
+		batch(() => {
+			setPageIndex(0);
+			setPageCursors([undefined]);
+			setHasNextPage(false);
+		});
+	});
+
+	// フィルタまたはページが変わるたびに Firestore クエリを再構築してリスナーを張り直す
 	createEffect(() => {
 		const constraints: QueryConstraint[] = [];
 		const maj = majorCategory();
 		const min = minorCategory();
 		const diff = difficulty();
 		const src = source();
+		const pi = pageIndex();
+		// pageCursors はリスナー内での更新でエフェクトが再実行されないよう untrack で読む
+		const cursor = untrack(pageCursors)[pi];
 
 		if (maj) constraints.push(where('majorCategory', '==', maj));
 		if (min) constraints.push(where('minorCategory', '==', min));
 		if (diff) constraints.push(where('difficulty', '==', diff));
 		if (src) constraints.push(where('source', '==', src));
 		constraints.push(orderBy('createdAt', 'desc'));
+		if (cursor) constraints.push(startAfter(cursor));
+		// 次ページの有無を判定するため PAGE_SIZE + 1 件を取得
+		constraints.push(limit(PAGE_SIZE + 1));
 
 		setDisplayState('loading', true);
 
@@ -64,14 +92,26 @@ const Index: Component = () => {
 		const unsubscribe = onSnapshot(
 			q,
 			(snapshot) => {
+				const docs = snapshot.docs;
+				const hasMore = docs.length > PAGE_SIZE;
+				const pageDocs = docs.slice(0, PAGE_SIZE);
+
 				setDisplayState({
 					loading: false,
 					error: null,
-					data: snapshot.docs.map((d) => ({
-						id: d.id,
-						...d.data(),
-					})) as Question[],
+					data: pageDocs.map((d) => ({id: d.id, ...d.data()})) as Question[],
 				});
+				setHasNextPage(hasMore);
+
+				// 次ページのカーソルをまだ保存していなければ保存する
+				if (hasMore) {
+					setPageCursors((prev) => {
+						if (prev.length <= pi + 1) {
+							return [...prev, docs[PAGE_SIZE - 1]];
+						}
+						return prev;
+					});
+				}
 			},
 			(err) => {
 				setDisplayState({loading: false, error: err as Error, data: []});
@@ -79,25 +119,6 @@ const Index: Component = () => {
 		);
 
 		onCleanup(unsubscribe);
-	});
-
-	// Debounce keyword input
-	let keywordTimer: ReturnType<typeof setTimeout>;
-	createEffect(() => {
-		const kw = keyword();
-		clearTimeout(keywordTimer);
-		keywordTimer = setTimeout(() => setDebouncedKeyword(kw), 300);
-	});
-
-	// Tokenize debounced keyword (kuromoji, async)
-	createEffect(async () => {
-		const kw = debouncedKeyword().trim();
-		if (!kw) {
-			setQueryTokens([]);
-			return;
-		}
-		const tokens = await tokenize(kw);
-		setQueryTokens(tokens);
 	});
 
 	// ドロップダウン選択肢は metadata/options から取得
@@ -109,67 +130,20 @@ const Index: Component = () => {
 		const options = optionsDoc.data;
 		if (!options) return [];
 		const maj = majorCategory();
-		if (maj) {
-			return options.minorCategoriesByMajor[maj] ?? [];
-		}
+		if (maj) return options.minorCategoriesByMajor[maj] ?? [];
 		return Object.values(options.minorCategoriesByMajor).flat().sort();
 	});
 
 	const sources = createMemo(() => optionsDoc.data?.sources ?? []);
 
-	// Reset page and minor category when parent filters change
+	// 大カテゴリが変わったら小カテゴリをリセット
 	createEffect(() => {
 		majorCategory();
 		setMinorCategory('');
-		setPage(1);
-	});
-	createEffect(() => {
-		debouncedKeyword();
-		minorCategory();
-		difficulty();
-		source();
-		setPage(1);
-	});
-
-	// キーワード検索はクライアントサイドで実施（サーバー側フィルタ済みデータに対して）
-	const filteredQuestions = createMemo(() => {
-		const data = displayState.data;
-		const kw = debouncedKeyword().trim();
-		const tokens = queryTokens();
-
-		if (!kw) return data;
-
-		return data.filter((q: Question) => {
-			if (tokens.length > 0 && q.searchTokens?.length) {
-				if (!matchesTokens(q.searchTokens, tokens)) return false;
-			} else {
-				const docText = `${q.question} ${q.answer} ${q.explanation ?? ''}`;
-				const docBigrams = getBigrams(docText);
-				const kwBigrams = getBigrams(kw);
-				if (kwBigrams.length > 0 && !matchesTokens(docBigrams, kwBigrams))
-					return false;
-			}
-
-			return true;
-		});
-	});
-
-	const totalPages = createMemo(() =>
-		Math.max(1, Math.ceil(filteredQuestions().length / PAGE_SIZE)),
-	);
-
-	const pagedQuestions = createMemo(() => {
-		const p = page();
-		return filteredQuestions().slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
 	});
 
 	const hasActiveFilter = createMemo(
-		() =>
-			majorCategory() ||
-			minorCategory() ||
-			difficulty() ||
-			keyword() ||
-			source(),
+		() => majorCategory() || minorCategory() || difficulty() || source(),
 	);
 
 	return (
@@ -179,32 +153,6 @@ const Index: Component = () => {
 				<A href="/questions/new" class={styles.addBtn}>
 					+ 問題追加
 				</A>
-			</div>
-
-			<div class={styles.searchBar}>
-				<div class={styles.searchInputWrapper}>
-					<svg
-						class={styles.searchIcon}
-						width="16"
-						height="16"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-					>
-						<title>検索</title>
-						<path
-							fill-rule="evenodd"
-							d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-							clip-rule="evenodd"
-						/>
-					</svg>
-					<input
-						type="text"
-						class={styles.searchInput}
-						placeholder="キーワードで検索（日本語あいまい検索対応）"
-						value={keyword()}
-						onInput={(e) => setKeyword(e.currentTarget.value)}
-					/>
-				</div>
 			</div>
 
 			<div class={styles.filters}>
@@ -261,8 +209,6 @@ const Index: Component = () => {
 						type="button"
 						class={styles.clearBtn}
 						onClick={() => {
-							setKeyword('');
-							setDebouncedKeyword('');
 							setMajorCategory('');
 							setMinorCategory('');
 							setDifficulty(0);
@@ -289,14 +235,11 @@ const Index: Component = () => {
 					}
 				>
 					<p class={styles.resultCount}>
-						{filteredQuestions().length} 件
-						{displayState.data.length !== filteredQuestions().length
-							? ` / ${displayState.data.length} 件中`
-							: ''}
+						{displayState.data.length} 件{hasNextPage() ? '以上' : ''}
 					</p>
 
 					<Show
-						when={filteredQuestions().length > 0}
+						when={displayState.data.length > 0}
 						fallback={
 							<div class={styles.emptyState}>
 								<p>条件に一致する問題がありません。</p>
@@ -307,7 +250,7 @@ const Index: Component = () => {
 						}
 					>
 						<div class={styles.list}>
-							<For each={pagedQuestions()}>
+							<For each={displayState.data}>
 								{(q) => (
 									<A href={`/questions/${q.id}`} class={styles.questionCard}>
 										<div class={styles.questionText}>{q.question}</div>
@@ -345,24 +288,22 @@ const Index: Component = () => {
 							</For>
 						</div>
 
-						<Show when={totalPages() > 1}>
+						<Show when={pageIndex() > 0 || hasNextPage()}>
 							<div class={styles.pagination}>
 								<button
 									type="button"
 									class={styles.pageBtn}
-									disabled={page() === 1}
-									onClick={() => setPage((p) => p - 1)}
+									disabled={pageIndex() === 0}
+									onClick={() => setPageIndex((p) => p - 1)}
 								>
 									← 前
 								</button>
-								<span class={styles.pageInfo}>
-									{page()} / {totalPages()} ページ
-								</span>
+								<span class={styles.pageInfo}>{pageIndex() + 1} ページ</span>
 								<button
 									type="button"
 									class={styles.pageBtn}
-									disabled={page() === totalPages()}
-									onClick={() => setPage((p) => p + 1)}
+									disabled={!hasNextPage()}
+									onClick={() => setPageIndex((p) => p + 1)}
 								>
 									次 →
 								</button>

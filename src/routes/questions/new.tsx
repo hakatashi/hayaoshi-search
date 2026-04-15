@@ -1,10 +1,9 @@
-import {createSignal, type Component} from 'solid-js';
-import {useNavigate, A} from '@solidjs/router';
+import {A, useNavigate} from '@solidjs/router';
 import {addDoc, Timestamp} from 'firebase/firestore';
+import {type Component, createSignal} from 'solid-js';
+import QuestionForm from '~/components/QuestionForm';
 import {Questions} from '~/lib/firebase';
 import type {Question, QuestionInput} from '~/lib/types';
-import {buildSearchTokens} from '~/lib/tokenizer';
-import QuestionForm from '~/components/QuestionForm';
 import styles from './new.module.css';
 
 const NewQuestion: Component = () => {
@@ -14,13 +13,8 @@ const NewQuestion: Component = () => {
 	const handleSubmit = async (values: QuestionInput) => {
 		setError('');
 		try {
-			const searchTokens = await buildSearchTokens(
-				values.question,
-				values.answer,
-			);
 			const docRef = await addDoc(Questions, {
 				...values,
-				searchTokens,
 				createdAt: Timestamp.now(),
 			} as Question);
 			navigate(`/questions/${docRef.id}`);

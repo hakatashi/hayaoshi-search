@@ -1,12 +1,11 @@
-import {Show, createSignal, type Component} from 'solid-js';
 import {A, useNavigate, useParams} from '@solidjs/router';
-import {useFirestore} from 'solid-firebase';
 import {deleteDoc, doc, updateDoc} from 'firebase/firestore';
+import {useFirestore} from 'solid-firebase';
+import {type Component, createSignal, Show} from 'solid-js';
+import QuestionForm from '~/components/QuestionForm';
 import {db, Questions} from '~/lib/firebase';
 import type {QuestionInput} from '~/lib/types';
 import {DIFFICULTY_COLORS, DIFFICULTY_LABELS} from '~/lib/types';
-import {buildSearchTokens} from '~/lib/tokenizer';
-import QuestionForm from '~/components/QuestionForm';
 import styles from './[id].module.css';
 
 const QuestionDetail: Component = () => {
@@ -21,14 +20,7 @@ const QuestionDetail: Component = () => {
 	const handleUpdate = async (values: QuestionInput) => {
 		setError('');
 		try {
-			const searchTokens = await buildSearchTokens(
-				values.question,
-				values.answer,
-			);
-			await updateDoc(doc(Questions, params.id), {
-				...values,
-				searchTokens,
-			});
+			await updateDoc(doc(Questions, params.id), {...values});
 			setEditing(false);
 		} catch (err) {
 			console.error(err);
