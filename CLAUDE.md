@@ -8,25 +8,27 @@
 - **データベース**: Firebase Firestore
 - **認証**: Firebase Authentication (Googleログイン)
 - **ホスティング**: Firebase Hosting
-- **日本語形態素解析**: kuromoji (辞書ファイルは `public/dict/` に配置)
+- **バックエンド**: Firebase Cloud Functions (カテゴリ・出典のメタデータ集計)
 - **CSV/TSVパース**: papaparse
 - **スタイル**: CSS Modules (各コンポーネント・ルートごとに `.module.css`)
 - **Linter/Formatter**: Biome
 - **型チェック**: TypeScript (`tsc --noEmit`)
+- **テスト**: Vitest + jsdom + @solidjs/testing-library (Firebase エミュレーター使用)
 
 ## 開発コマンド
 
 ```bash
-npm run dev          # 開発サーバー + Firebase エミュレーター + Functions を同時起動
+npm run dev          # 開発サーバー + Firebase エミュレーター + Functions ビルドウォッチ を同時起動
 npm run build        # 本番ビルド (.output/public に出力)
 npm run fix          # format + lint を一括実行 (Biome)
+npm run test         # Functions ビルド後、Firebase エミュレーターを起動して Vitest を実行
 npx tsc --noEmit     # 型チェック
 ```
 
 ## デプロイ
 
 ```bash
-firebase deploy --only hosting,firestore
+firebase deploy --only hosting,firestore,functions
 ```
 
 `firebase.json` の `predeploy` で `npm run build` が自動実行される。
@@ -45,22 +47,24 @@ src/
 ├── app.tsx                        # ルートコンポーネント (FirebaseProvider + Router)
 ├── app.css                        # グローバルCSS変数・リセットのみ
 ├── lib/
-│   ├── firebase.ts                # Firebase初期化、Questions コレクション参照
-│   ├── types.ts                   # Question インターフェース、定数
-│   ├── tokenizer.ts               # kuromoji ラッパー (バイグラムフォールバック付き)
+│   ├── firebase.ts                # Firebase初期化、Questions・OptionsDoc 参照
+│   ├── types.ts                   # Question・QuestionOptions インターフェース、定数
 │   └── auth.ts                    # createAuthState() リアクティブヘルパー
 ├── components/
 │   ├── AuthGuard.tsx / .module.css   # Googleサインイン認証ゲート
 │   ├── Layout.tsx / .module.css      # ナビゲーションヘッダー付きレイアウト
 │   └── QuestionForm.tsx / .module.css # 問題追加・編集フォーム（共有）
 └── routes/
-    ├── index.tsx / .module.css        # 検索・一覧ページ
-    ├── import.tsx / .module.css       # CSV/TSV一括インポート
+    ├── index.tsx / .module.css        # 検索・一覧ページ（サーバーサイドフィルタリング、カーソルページネーション）
+    ├── import.tsx / .module.css       # CSV/TSV一括インポート（upsert対応）
     ├── quiz.tsx / .module.css         # クイズモード
     └── questions/
         ├── index.tsx                  # / にリダイレクト
         ├── new.tsx / .module.css      # 問題追加
         └── [id].tsx / .module.css     # 問題詳細・編集・削除
+functions/
+└── src/
+    └── index.ts                   # Cloud Function: 問題書き込み時にカテゴリ・出典を metadata/options に集計
 ```
 
 ## 問題データ構造
@@ -78,16 +82,27 @@ interface Question {
   createdAt: Timestamp;       // 追加日
   source: string;             // 出典
   sourceNumber: string;       // 出典番号
-  searchTokens: string[];     // 検索インデックス（保存時に自動生成）
+}
+
+interface QuestionOptions {
+  majorCategories: string[];
+  minorCategoriesByMajor: Record<string, string[]>;
+  sources: string[];
 }
 ```
 
-## 日本語あいまい検索
+`QuestionOptions` は `metadata/options` ドキュメントに格納され、Cloud Function が問題の書き込みをトリガーとして自動更新する。
 
-問題保存時に `buildSearchTokens()` を呼び出し、kuromoji で形態素解析した語基形 + バイグラムを `searchTokens` フィールドに格納する。検索時はクエリを同様にトークン化し、クライアントサイドでフィルタリングする。kuromoji が利用不可の場合はバイグラム検索にフォールバックする。
+## サーバーサイドフィルタリングと検索
 
-辞書ファイルは `app.config.ts` の Vite プラグインがビルド時に `node_modules/kuromoji/dict/` から `public/dict/` へ自動コピーする。
+- フィルター（大カテゴリ・小カテゴリ・難易度・出典）は Firestore の `where()` クエリでサーバーサイドに処理する
+- フィルターの組み合わせに対応する複合インデックスが `firestore.indexes.json` に定義されている
+- カーソルベースのページネーション（`limit` + `startAfter`）で100件ずつ表示
+- ドロップダウンの選択肢は `metadata/options` ドキュメントから取得し、全件スキャンを避ける
+- キーワード検索機能は廃止済み（kuromoji・searchTokens・tokenizer.ts は削除）
 
 ## CSV/TSVインポート形式
 
 ヘッダー行必須。カラム名: `問題文`, `答え`, `解説`, `別解`, `大カテゴリ`, `小カテゴリ`, `難易度`, `出典`, `出典番号`。別解は `;`（セミコロン）区切りで複数指定可能。カラムのマッピングはインポート画面で変更できる。
+
+`source` + `sourceNumber` の組み合わせで重複チェックを行い、既存ドキュメントは上書き（upsert）する。書き込みは Firestore の `writeBatch` を500件単位で実行する。
