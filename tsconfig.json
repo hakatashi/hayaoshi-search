@@ -1,5 +1,5 @@
 {
-	"exclude": ["functions"],
+	"exclude": ["functions", "scripts"],
 	"compilerOptions": {
 		"target": "ESNext",
 		"module": "ESNext",

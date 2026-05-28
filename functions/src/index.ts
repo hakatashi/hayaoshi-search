@@ -1,18 +1,49 @@
+import {algoliasearch} from 'algoliasearch';
 import {initializeApp} from 'firebase-admin/app';
 import {getFirestore} from 'firebase-admin/firestore';
 import {onDocumentWritten} from 'firebase-functions/v2/firestore';
 
 initializeApp();
 
+const ALGOLIA_APP_ID = 'CVBOBUD00F';
+const ALGOLIA_API_KEY = '18070b5d1e89e28b1ca3920fffdd2f11';
+const ALGOLIA_INDEX_NAME = 'questions';
+
+const algolia = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_API_KEY);
+
 /**
- * questions コレクションへの書き込み (作成・更新・削除) をトリガーに、
- * 全問題からユニークな大カテゴリ・小カテゴリ・出典を集計して
- * metadata/options ドキュメントに保存する。
+ * questions コレクションへの書き込み (作成・更新・削除) をトリガーに:
+ * 1. 全問題からユニークな大カテゴリ・小カテゴリ・出典を集計して metadata/options に保存する
+ * 2. Algolia インデックスを同期する
  */
 export const updateQuestionOptions = onDocumentWritten(
 	'questions/{questionId}',
-	async (_event) => {
+	async (event) => {
 		const db = getFirestore();
+		const questionId = event.params.questionId;
+
+		// Algolia 同期
+		if (event.data?.after.exists) {
+			const data = event.data.after.data();
+			if (data) {
+				await algolia.saveObject({
+					indexName: ALGOLIA_INDEX_NAME,
+					body: {
+						objectID: questionId,
+						...data,
+						// Firestore Timestamp を epoch ミリ秒に変換
+						createdAt: data.createdAt?.toMillis?.() ?? null,
+					},
+				});
+			}
+		} else {
+			await algolia.deleteObject({
+				indexName: ALGOLIA_INDEX_NAME,
+				objectID: questionId,
+			});
+		}
+
+		// metadata/options を更新
 		const snapshot = await db.collection('questions').get();
 
 		const majorCategories = new Set<string>();

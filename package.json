@@ -15,12 +15,14 @@
 		"fix": "npm run format && npm run lint -- --unsafe",
 		"test": "npm run functions:build && concurrently \"npm run dev:firebase\" \"npm run test:vitest\" --names firebase,vitest --kill-others --success first",
 		"test:vitest": "wait-on http-get://localhost:8080 http-get://localhost:5000 http-get://localhost:9099 && vitest",
+		"algolia:import": "tsx scripts/algolia-import.ts",
 		"prepare": "husky",
 		"install": "npm --prefix functions ci"
 	},
 	"dependencies": {
 		"@solidjs/router": "^0.16.1",
 		"@solidjs/start": "^1.3.2",
+		"algoliasearch": "^5.52.1",
 		"concurrently": "^9.2.1",
 		"firebase": "^12.12.0",
 		"papaparse": "^5.5.3",
@@ -38,8 +40,10 @@
 		"@testing-library/jest-dom": "^6.9.1",
 		"@testing-library/user-event": "^14.6.1",
 		"@types/papaparse": "^5.3.15",
+		"firebase-admin": "^13.10.0",
 		"husky": "^9.1.7",
 		"jsdom": "^29.0.2",
+		"tsx": "^4.22.3",
 		"vitest": "^4.1.4",
 		"wait-on": "^9.0.5"
 	}

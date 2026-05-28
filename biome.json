@@ -29,7 +29,8 @@
 			"!**/public",
 			"!**/.output",
 			"!**/.vinxi",
-			"!**/functions/lib"
+			"!**/functions/lib",
+			"!**/scripts/.venv"
 		]
 	},
 	"javascript": {

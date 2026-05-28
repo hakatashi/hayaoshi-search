@@ -23,16 +23,17 @@ import {
 } from 'solid-js';
 import {createStore} from 'solid-js/store';
 import {OptionsDoc, Questions} from '~/lib/firebase';
+import {algoliaClient, ALGOLIA_INDEX_NAME} from '~/lib/algolia';
 import {DIFFICULTY_COLORS, DIFFICULTY_LABELS, type Question} from '~/lib/types';
 import styles from './index.module.css';
 
 const PAGE_SIZE = 100;
 
+type SearchMode = 'question' | 'all';
+
 const Index: Component = () => {
-	// metadata/options ドキュメントをリアルタイム取得 → ドロップダウン選択肢として使用
 	const optionsDoc = useFirestore(OptionsDoc);
 
-	// サーバーサイドフィルタを反映したリアルタイムクエリの結果
 	const [displayState, setDisplayState] = createStore<{
 		loading: boolean;
 		error: Error | null;
@@ -44,21 +45,32 @@ const Index: Component = () => {
 	const [difficulty, setDifficulty] = createSignal(0);
 	const [source, setSource] = createSignal('');
 
+	// 検索クエリとモード
+	const [searchInput, setSearchInput] = createSignal('');
+	const [debouncedQuery, setDebouncedQuery] = createSignal('');
+	const [searchMode, setSearchMode] = createSignal<SearchMode>('question');
+
+	// 検索入力を 300ms デバウンス
+	createEffect(() => {
+		const q = searchInput();
+		const timer = setTimeout(() => setDebouncedQuery(q), 300);
+		onCleanup(() => clearTimeout(timer));
+	});
+
 	// カーソルベースのページネーション状態
-	// pageCursors[i] はページ i を読み込む際に startAfter に渡す DocumentSnapshot
-	// pageCursors[0] は undefined (最初のページはカーソル不要)
 	const [pageIndex, setPageIndex] = createSignal(0);
 	const [pageCursors, setPageCursors] = createSignal<
 		(DocumentSnapshot | undefined)[]
 	>([undefined]);
 	const [hasNextPage, setHasNextPage] = createSignal(false);
 
-	// フィルタが変わったらページネーションをリセット
+	// フィルタまたは検索クエリが変わったらページネーションをリセット
 	createEffect(() => {
 		majorCategory();
 		minorCategory();
 		difficulty();
 		source();
+		debouncedQuery();
 		batch(() => {
 			setPageIndex(0);
 			setPageCursors([undefined]);
@@ -66,15 +78,68 @@ const Index: Component = () => {
 		});
 	});
 
-	// フィルタまたはページが変わるたびに Firestore クエリを再構築してリスナーを張り直す
+	// Algolia 検索 (debouncedQuery が空でない場合)
 	createEffect(() => {
+		const q = debouncedQuery();
+		if (!q) return;
+
+		const mode = searchMode();
+		const maj = majorCategory();
+		const min = minorCategory();
+		const diff = difficulty();
+		const src = source();
+
+		setDisplayState('loading', true);
+
+		const filterParts: string[] = [];
+		if (maj) filterParts.push(`majorCategory:"${maj}"`);
+		if (min) filterParts.push(`minorCategory:"${min}"`);
+		if (src) filterParts.push(`source:"${src}"`);
+
+		const numericFilters: string[] = [];
+		if (diff) numericFilters.push(`difficulty=${diff}`);
+
+		algoliaClient
+			.searchSingleIndex({
+				indexName: ALGOLIA_INDEX_NAME,
+				searchParams: {
+					query: q,
+					restrictSearchableAttributes:
+						mode === 'question' ? ['question'] : undefined,
+					filters:
+						filterParts.length > 0 ? filterParts.join(' AND ') : undefined,
+					numericFilters:
+						numericFilters.length > 0 ? numericFilters : undefined,
+					hitsPerPage: PAGE_SIZE,
+				},
+			})
+			.then((result) => {
+				setDisplayState({
+					loading: false,
+					error: null,
+					data: result.hits.map((h) => ({
+						...(h as unknown as Question),
+						id: h.objectID,
+					})),
+				});
+				setHasNextPage(false);
+			})
+			.catch((err: Error) => {
+				setDisplayState({loading: false, error: err, data: []});
+			});
+	});
+
+	// Firestore クエリ (debouncedQuery が空の場合)
+	createEffect(() => {
+		const q = debouncedQuery();
+		if (q) return; // Algolia 側で処理
+
 		const constraints: QueryConstraint[] = [];
 		const maj = majorCategory();
 		const min = minorCategory();
 		const diff = difficulty();
 		const src = source();
 		const pi = pageIndex();
-		// pageCursors はリスナー内での更新でエフェクトが再実行されないよう untrack で読む
 		const cursor = untrack(pageCursors)[pi];
 
 		if (maj) constraints.push(where('majorCategory', '==', maj));
@@ -83,14 +148,13 @@ const Index: Component = () => {
 		if (src) constraints.push(where('source', '==', src));
 		constraints.push(orderBy('createdAt', 'desc'));
 		if (cursor) constraints.push(startAfter(cursor));
-		// 次ページの有無を判定するため PAGE_SIZE + 1 件を取得
 		constraints.push(limit(PAGE_SIZE + 1));
 
 		setDisplayState('loading', true);
 
-		const q = query(Questions, ...constraints);
+		const firestoreQuery = query(Questions, ...constraints);
 		const unsubscribe = onSnapshot(
-			q,
+			firestoreQuery,
 			(snapshot) => {
 				const docs = snapshot.docs;
 				const hasMore = docs.length > PAGE_SIZE;
@@ -103,7 +167,6 @@ const Index: Component = () => {
 				});
 				setHasNextPage(hasMore);
 
-				// 次ページのカーソルをまだ保存していなければ保存する
 				if (hasMore) {
 					setPageCursors((prev) => {
 						if (prev.length <= pi + 1) {
@@ -121,7 +184,6 @@ const Index: Component = () => {
 		onCleanup(unsubscribe);
 	});
 
-	// ドロップダウン選択肢は metadata/options から取得
 	const majorCategories = createMemo(
 		() => optionsDoc.data?.majorCategories ?? [],
 	);
@@ -136,7 +198,6 @@ const Index: Component = () => {
 
 	const sources = createMemo(() => optionsDoc.data?.sources ?? []);
 
-	// 大カテゴリが変わったら小カテゴリをリセット
 	createEffect(() => {
 		majorCategory();
 		setMinorCategory('');
@@ -146,6 +207,8 @@ const Index: Component = () => {
 		() => majorCategory() || minorCategory() || difficulty() || source(),
 	);
 
+	const isAlgoliaMode = createMemo(() => debouncedQuery().length > 0);
+
 	return (
 		<div>
 			<div class={styles.header}>
@@ -153,6 +216,40 @@ const Index: Component = () => {
 				<A href="/questions/new" class={styles.addBtn}>
 					+ 問題追加
 				</A>
+			</div>
+
+			<div class={styles.searchBar}>
+				<div class={styles.searchInputWrapper}>
+					<svg
+						class={styles.searchIcon}
+						xmlns="http://www.w3.org/2000/svg"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"
+					>
+						<circle cx="11" cy="11" r="8" />
+						<line x1="21" y1="21" x2="16.65" y2="16.65" />
+					</svg>
+					<input
+						type="text"
+						class={styles.searchInput}
+						placeholder="キーワードで検索..."
+						value={searchInput()}
+						onInput={(e) => setSearchInput(e.currentTarget.value)}
+					/>
+				</div>
+				<select
+					class={styles.searchModeSelect}
+					value={searchMode()}
+					onChange={(e) => setSearchMode(e.currentTarget.value as SearchMode)}
+				>
+					<option value="question">問題文のみ</option>
+					<option value="all">全フィールド</option>
+				</select>
 			</div>
 
 			<div class={styles.filters}>
@@ -235,7 +332,11 @@ const Index: Component = () => {
 					}
 				>
 					<p class={styles.resultCount}>
-						{displayState.data.length} 件{hasNextPage() ? '以上' : ''}
+						{displayState.data.length} 件
+						{!isAlgoliaMode() && hasNextPage() ? '以上' : ''}
+						<Show when={isAlgoliaMode()}>
+							<span class={styles.algoliaNote}> (Algolia 検索)</span>
+						</Show>
 					</p>
 
 					<Show
@@ -288,7 +389,7 @@ const Index: Component = () => {
 							</For>
 						</div>
 
-						<Show when={pageIndex() > 0 || hasNextPage()}>
+						<Show when={!isAlgoliaMode() && (pageIndex() > 0 || hasNextPage())}>
 							<div class={styles.pagination}>
 								<button
 									type="button"
