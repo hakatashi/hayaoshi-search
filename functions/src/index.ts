@@ -1,15 +1,14 @@
 import {algoliasearch} from 'algoliasearch';
 import {initializeApp} from 'firebase-admin/app';
 import {getFirestore} from 'firebase-admin/firestore';
+import {defineSecret} from 'firebase-functions/params';
 import {onDocumentWritten} from 'firebase-functions/v2/firestore';
 
 initializeApp();
 
 const ALGOLIA_APP_ID = 'CVBOBUD00F';
-const ALGOLIA_API_KEY = '18070b5d1e89e28b1ca3920fffdd2f11';
 const ALGOLIA_INDEX_NAME = 'questions';
-
-const algolia = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_API_KEY);
+const algoliaApiKey = defineSecret('ALGOLIA_API_KEY');
 
 /**
  * questions コレクションへの書き込み (作成・更新・削除) をトリガーに:
@@ -17,10 +16,11 @@ const algolia = algoliasearch(ALGOLIA_APP_ID, ALGOLIA_API_KEY);
  * 2. Algolia インデックスを同期する
  */
 export const updateQuestionOptions = onDocumentWritten(
-	'questions/{questionId}',
+	{document: 'questions/{questionId}', secrets: [algoliaApiKey]},
 	async (event) => {
 		const db = getFirestore();
 		const questionId = event.params.questionId;
+		const algolia = algoliasearch(ALGOLIA_APP_ID, algoliaApiKey.value());
 
 		// Algolia 同期
 		if (event.data?.after.exists) {
@@ -31,7 +31,6 @@ export const updateQuestionOptions = onDocumentWritten(
 					body: {
 						objectID: questionId,
 						...data,
-						// Firestore Timestamp を epoch ミリ秒に変換
 						createdAt: data.createdAt?.toMillis?.() ?? null,
 					},
 				});
