@@ -13,33 +13,40 @@ const algoliaApiKey = defineSecret('ALGOLIA_API_KEY');
 /**
  * questions コレクションへの書き込み (作成・更新・削除) をトリガーに:
  * 1. 全問題からユニークな大カテゴリ・小カテゴリ・出典を集計して metadata/options に保存する
- * 2. Algolia インデックスを同期する
+ * 2. Algolia インデックスを同期する (キーが未設定の場合はスキップ)
  */
 export const updateQuestionOptions = onDocumentWritten(
 	{document: 'questions/{questionId}', secrets: [algoliaApiKey]},
 	async (event) => {
 		const db = getFirestore();
 		const questionId = event.params.questionId;
-		const algolia = algoliasearch(ALGOLIA_APP_ID, algoliaApiKey.value());
 
-		// Algolia 同期
-		if (event.data?.after.exists) {
-			const data = event.data.after.data();
-			if (data) {
-				await algolia.saveObject({
-					indexName: ALGOLIA_INDEX_NAME,
-					body: {
+		// Algolia 同期 (エミュレーター環境などキーが未設定の場合はスキップ)
+		const apiKey = algoliaApiKey.value();
+		if (apiKey) {
+			try {
+				const algolia = algoliasearch(ALGOLIA_APP_ID, apiKey);
+				if (event.data?.after.exists) {
+					const data = event.data.after.data();
+					if (data) {
+						await algolia.saveObject({
+							indexName: ALGOLIA_INDEX_NAME,
+							body: {
+								objectID: questionId,
+								...data,
+								createdAt: data.createdAt?.toMillis?.() ?? null,
+							},
+						});
+					}
+				} else {
+					await algolia.deleteObject({
+						indexName: ALGOLIA_INDEX_NAME,
 						objectID: questionId,
-						...data,
-						createdAt: data.createdAt?.toMillis?.() ?? null,
-					},
-				});
+					});
+				}
+			} catch (err) {
+				console.error('Algolia sync failed:', err);
 			}
-		} else {
-			await algolia.deleteObject({
-				indexName: ALGOLIA_INDEX_NAME,
-				objectID: questionId,
-			});
 		}
 
 		// metadata/options を更新
