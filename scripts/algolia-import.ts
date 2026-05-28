@@ -18,7 +18,12 @@ const require = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const ALGOLIA_APP_ID = 'CVBOBUD00F';
-const ALGOLIA_API_KEY = '18070b5d1e89e28b1ca3920fffdd2f11';
+const ALGOLIA_API_KEY = process.env.ALGOLIA_API_KEY;
+if (!ALGOLIA_API_KEY) {
+	console.error('Error: ALGOLIA_API_KEY environment variable is required.');
+	console.error('Usage: ALGOLIA_API_KEY=<admin-key> npm run algolia:import');
+	process.exit(1);
+}
 const ALGOLIA_INDEX_NAME = 'questions';
 const ADMIN_KEY_FILE = join(
 	__dirname,
