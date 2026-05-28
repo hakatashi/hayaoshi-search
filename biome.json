@@ -30,7 +30,8 @@
 			"!**/.output",
 			"!**/.vinxi",
 			"!**/functions/lib",
-			"!**/scripts/.venv"
+			"!**/.venv",
+			"!**/__pycache__"
 		]
 	},
 	"javascript": {
