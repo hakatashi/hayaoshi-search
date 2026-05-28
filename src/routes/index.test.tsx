@@ -176,7 +176,7 @@ test('大カテゴリで絞り込むと該当問題だけ表示される', async
 	);
 
 	const selects = container.querySelectorAll('select');
-	fireEvent.change(selects[0], {target: {value: '地理'}});
+	fireEvent.change(selects[1], {target: {value: '地理'}});
 
 	await waitFor(
 		() => {
@@ -216,7 +216,7 @@ test('クリアボタンでフィルターをリセットできる', async () =>
 	);
 
 	const selects = container.querySelectorAll('select');
-	fireEvent.change(selects[0], {target: {value: '地理'}});
+	fireEvent.change(selects[1], {target: {value: '地理'}});
 	await waitFor(() => expect(getByText('クリア')).toBeInTheDocument());
 
 	await user.click(getByText('クリア'));
