@@ -31,3 +31,7 @@ Thumbs.db
 # Firebase
 .firebase
 *.log
+
+hayaoshi-search-*.json
+.venv/
+__pycache__/

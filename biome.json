@@ -29,7 +29,9 @@
 			"!**/public",
 			"!**/.output",
 			"!**/.vinxi",
-			"!**/functions/lib"
+			"!**/functions/lib",
+			"!**/.venv",
+			"!**/__pycache__"
 		]
 	},
 	"javascript": {
